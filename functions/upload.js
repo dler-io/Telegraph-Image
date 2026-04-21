@@ -1,7 +1,16 @@
 import { errorHandling, telemetryData } from "./utils/middleware";
 
+function getAllowedOrigin(request) {
+    const origin = request.headers.get('Origin') || '';
+    if (origin.endsWith('oixcloud.com') || origin.endsWith('todesk.io')) {
+        return origin;
+    }
+    return 'https://oixcloud.com';
+}
+
 export async function onRequestPost(context) {
     const { request, env } = context;
+    const allowedOrigin = getAllowedOrigin(request);
 
     try {
         const clonedRequest = request.clone();
@@ -67,7 +76,10 @@ export async function onRequestPost(context) {
             JSON.stringify([{ 'src': `/file/${fileId}.${fileExtension}` }]),
             {
                 status: 200,
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': allowedOrigin
+                }
             }
         );
     } catch (error) {
@@ -76,7 +88,10 @@ export async function onRequestPost(context) {
             JSON.stringify({ error: error.message }),
             {
                 status: 500,
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': allowedOrigin
+                }
             }
         );
     }
@@ -131,4 +146,16 @@ async function sendToTelegram(formData, apiEndpoint, env, retryCount = 0) {
         }
         return { success: false, error: 'Network error occurred' };
     }
+}
+export async function onRequestOptions(context) {
+    const allowedOrigin = getAllowedOrigin(context.request);
+    return new Response(null, {
+        status: 204,
+        headers: {
+            'Access-Control-Allow-Origin': allowedOrigin,
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+            'Access-Control-Max-Age': '86400',
+        },
+    });
 }
